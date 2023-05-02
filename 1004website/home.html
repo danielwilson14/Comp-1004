@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"> <!-- this allows for other languages which use non ASCII characters-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!--sets the initial zoom to no zoom and makes it so the chatbox interface is relative to the width of the devices screen-->
+  <title>chatbox</title> <!-- sets the title which will be visable in the tab of the window-->
+  <link rel="stylesheet" href="style.css"> <!-- this links the css document to this html one -->
+</head>
+<body>
+
+  <button id="sidebar-toggle" class="sidebar-toggle hidden">|||</button>
+  <div id="sidebar" class="sidebar">
+    <button id="sidebar-toggle2" class="sidebar-toggle2"> X </button>
+    <h3>Friends</h3>
+  </div>
+
+  <div id="auth" class="auth">
+    <h1 class="loginTitle">Please Login or Register to continue</h1>
+    <h2>Register</h2>
+    <input type="text" id="registerUsername" class="regInput" placeholder="Username">
+    <input type="email" id="registerEmail" class="regInput" placeholder="Email">
+    <input type="password" id="registerPassword" class="regInput" placeholder="Password">
+    <button id="registerBtn" class="registerBtn">Register</button>
+
+    <h2>Login</h2>
+    <input type="text" id="loginUsername" class="regInput" placeholder="Username">
+    <input type="password" id="loginPassword" class="regInput" placeholder="Password">
+    <button id="loginBtn" class="loginBtn">Login</button>
+  </div>
+
+  <div class="chat-container hidden"> <!--creates container which is styled using css-->
+    <div class="chat-header"> <!--creates the header of the page-->
+      <h2>Chat room</h2>
+    </div>
+
+    <div class="chat-clear">
+        <button id="clear-button">clear chat</button>
+    </div>
+
+    <div class="chat-content" id="chat-content">
+      <!-- Messages will be displayed here -->
+    </div>
+
+    <div class="chat-input">
+      <input type="text" placeholder="Type your message..." id="message-input">
+      <button id="send-button">Send</button>
+    </div>
+
+  </div>
+  <script>
+
+    const chatContent = document.getElementById("chat-content"); 
+    const messageInput = document.getElementById("message-input");
+    const sendButton = document.getElementById("send-button");
+    const clearbutton = document.getElementById("clear-button");
+
+    const sidebar = document.getElementById("sidebar");
+    const sidebarToggle = document.getElementById("sidebar-toggle");
+    const sidebarToggle2 = document.getElementById("sidebar-toggle2");
+
+    const ws = new WebSocket("ws://localhost:8080");
+
+    ws.addEventListener("open", () => {
+      console.log("connected to websocket server");
+    });
+
+    ws.addEventListener("message", (event) => {
+      const message = JSON.parse(event.data);
+
+      if (message.success) {
+        if (message.success === "User registered" || message.success === "User authenticated") {
+         // Hide the login/register form and show the chatbox
+         document.querySelector("#auth").classList.add("hidden");
+          document.querySelector(".chat-container").classList.remove("hidden");
+          document.querySelector(".sidebar-toggle").classList.remove("hidden");
+        }
+      } else if (message.error) {
+        alert(message.error);
+      } else {
+        displayMessage(message.text, false);
+      }
+    });
+
+
+    ws.addEventListener("close", () => {
+      console.log("disconnected from websocket server");
+    });
+
+    ws.addEventListener("error", (error) => {
+      console.error("websocket error: ", error);
+    });
+
+    function displayMessage(message, Sentout) {
+      const newMessage = document.createElement("div");
+      if (Sentout) {
+        newMessage.classList.add("message-sent");
+      } else{
+        newMessage.classList.add("message-recieved");
+      }
+      newMessage.textContent = message;
+      chatContent.appendChild(newMessage);
+    }
+
+    function sendmessage() {
+        const message = messageInput.value.trim();
+        if (message !== "") {
+        const messageJSON = JSON.stringify({ text: message });
+        ws.send(messageJSON);
+        displayMessage(message, true);
+        messageInput.value = ""
+        }
+    }
+
+    function togglesidebar() {
+      sidebar.classList.toggle("sidebar-open")
+    }
+
+    messageInput.addEventListener("keydown", () => {
+        const message = messageInput.value.trim();
+        if(event.key === "Enter"){
+            sendmessage();
+        }
+    })
+
+    sendButton.addEventListener("click", () => {
+        sendmessage();
+      
+    });
+
+   clearbutton.addEventListener("click", clearchat);
+
+   function clearchat() {
+    chatContent.innerHTML = '';
+   }
+
+   document.getElementById('registerBtn').addEventListener('click', () => {
+    const username = document.getElementById('registerUsername').value;
+    const email = document.getElementById('registerEmail').value;
+    const password = document.getElementById('registerPassword').value;
+
+    ws.send(JSON.stringify({ action: 'register', username, email, password }));
+   });
+
+   document.getElementById('loginBtn').addEventListener('click', () => {
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+
+    ws.send(JSON.stringify({ action: 'authenticate', username, password }));
+   });
+
+
+
+    sidebarToggle.addEventListener("click", togglesidebar);
+    sidebarToggle2.addEventListener("click", togglesidebar);
+
+  </script>
+</body>
+</html>
